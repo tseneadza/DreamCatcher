@@ -1,0 +1,50 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+frontend/node_modules/
+mobile/node_modules/
+
+# Vite
+frontend/dist/
+
+# Expo / React Native (mobile)
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.kotlin/
+mobile/ios/
+mobile/android/
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs & debug
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*

@@ -1,0 +1,23 @@
+{
+  "id": "dreamcatcher",
+  "name": "DreamCatcher",
+  "description": "A comprehensive app for dream journaling, goal tracking, idea capture, and sleep analysis with AI-powered insights",
+  "version": "0.1.0",
+  "type": "web",
+  "icon": "🌙",
+  "category": "productivity",
+  
+  "web": {
+    "enabled": true,
+    "entry": "start.sh",
+    "port": 5111,
+    "framework": "fullstack",
+    "command": ["./start.sh"]
+  },
+  
+  "desktop": {
+    "enabled": false
+  },
+  
+  "tags": ["dreams", "goals", "ideas", "sleep", "journal", "ai", "productivity", "fastapi", "react"]
+}

@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "DreamCatcher",
+    "slug": "dreamcatcher",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "dreamcatcher",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e1b4b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dreamcatcher.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1e1b4b",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "package": "com.dreamcatcher.app",
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow DreamCatcher to use Face ID for secure login."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:5111",
+      "eas": {
+        "projectId": "dreamcatcher-mobile"
+      }
+    }
+  }
+}
