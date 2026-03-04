@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Target, Lightbulb, BedDouble, TrendingUp, Sparkles, Brain, RefreshCw, Loader2, Eye } from 'lucide-react';
+import { Moon, Target, Lightbulb, BedDouble, TrendingUp, Sparkles, Brain, RefreshCw, Eye } from 'lucide-react';
 import { dreamsApi, goalsApi, ideasApi, sleepApi, aiApi } from '../api';
 import type { Dream, Goal, Idea, SleepLog, SleepStats, PatternAnalysis } from '../api/types';
 import type { InsightsResponse } from '../api/ai';

@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from sqlalchemy.orm import Session
 from models.dream import Dream
 from models.user import User
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def extract_research_event(
     dream: Dream, user: User, consent: ResearchConsent, db: Session
-) -> DreamResearchEvent | None:
+) -> Optional[DreamResearchEvent]:
     if consent.status != "active":
         logger.debug("Consent not active for user %s, skipping extraction", user.id)
         return None

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, BedDouble, Trash2, Moon, Clock, BarChart3, Coffee, Dumbbell, Brain, Search } from 'lucide-react';
+import { Plus, BedDouble, Trash2, Moon, Clock, BarChart3, Coffee, Dumbbell, Brain } from 'lucide-react';
 import { sleepApi, dreamsApi } from '../api';
 import type { SleepLog, SleepLogCreate, Dream, SleepStats, SleepCorrelation } from '../api/types';
 import { format, differenceInHours, differenceInMinutes } from 'date-fns';

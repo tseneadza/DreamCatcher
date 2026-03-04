@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Lightbulb, Trash2, X, Star, Search } from 'lucide-react';
+import { Plus, Lightbulb, Trash2, Star, Search } from 'lucide-react';
 import { ideasApi } from '../api';
 import type { Idea, IdeaCreate } from '../api/types';
 import { format } from 'date-fns';
