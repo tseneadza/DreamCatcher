@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/context/AuthContext';
 import { dreamsApi, goalsApi, ideasApi, sleepApi, aiApi } from '@/api';
-import type { InsightsResponse } from '@/api/types';
+import type { InsightsResponse, SleepStats, PatternAnalysis } from '@/api/types';
 
 interface DashboardStats {
   totalDreams: number;
@@ -69,6 +69,9 @@ export default function DashboardScreen() {
     avgSleepQuality: null,
   });
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [patterns, setPatterns] = useState<PatternAnalysis | null>(null);
+  const [patternsLoading, setPatternsLoading] = useState(false);
+  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,12 +80,14 @@ export default function DashboardScreen() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const [dreams, goals, ideas, sleepLogs] = await Promise.all([
+      const [dreams, goals, ideas, sleepLogs, sStats] = await Promise.all([
         dreamsApi.getAll(),
         goalsApi.getAll(),
         ideasApi.getAll(),
         sleepApi.getAll(),
+        sleepApi.getStats().catch(() => null),
       ]);
+      setSleepStats(sStats);
 
       const activeGoals = goals.filter(
         (g) => g.status === 'active' || g.status === 'in_progress'
@@ -118,6 +123,18 @@ export default function DashboardScreen() {
       setInsightsError('Failed to load AI insights');
     } finally {
       setInsightsLoading(false);
+    }
+  }, []);
+
+  const fetchPatterns = useCallback(async () => {
+    setPatternsLoading(true);
+    try {
+      const data = await aiApi.getPatterns(30);
+      setPatterns(data);
+    } catch (err) {
+      console.error('Failed to fetch patterns:', err);
+    } finally {
+      setPatternsLoading(false);
     }
   }, []);
 
@@ -233,6 +250,127 @@ export default function DashboardScreen() {
               iconColor="#60a5fa"
             />
           </View>
+        </View>
+
+        {/* Sleep Trends Card */}
+        {sleepStats && sleepStats.total_logs > 0 && (
+          <View className="px-5 mb-6">
+            <Text className="text-white text-lg font-semibold mb-3">
+              Sleep Trends
+            </Text>
+            <View className="bg-slate-800 rounded-2xl p-4">
+              <View className="flex-row justify-between mb-3">
+                <View>
+                  <Text className="text-slate-400 text-xs">Avg Quality</Text>
+                  <Text className="text-white text-xl font-bold">
+                    {sleepStats.avg_quality.toFixed(1)}/5
+                  </Text>
+                </View>
+                <View>
+                  <Text className="text-slate-400 text-xs">Total Logs</Text>
+                  <Text className="text-white text-xl font-bold">
+                    {sleepStats.total_logs}
+                  </Text>
+                </View>
+                {sleepStats.avg_duration != null && (
+                  <View>
+                    <Text className="text-slate-400 text-xs">Avg Duration</Text>
+                    <Text className="text-white text-xl font-bold">
+                      {Math.floor(sleepStats.avg_duration / 60)}h{Math.round(sleepStats.avg_duration % 60)}m
+                    </Text>
+                  </View>
+                )}
+              </View>
+              {sleepStats.quality_trend.length > 0 && (
+                <View className="flex-row items-end h-12 gap-1">
+                  {sleepStats.quality_trend.slice(-7).map((point, i) => (
+                    <View key={i} className="flex-1 items-center">
+                      <View
+                        className="w-full bg-indigo-500 rounded-t"
+                        style={{ height: `${point.quality * 20}%` }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Dream Patterns Card */}
+        <View className="px-5 mb-6">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center">
+              <Ionicons name="eye" size={20} color="#818cf8" />
+              <Text className="text-white text-lg font-semibold ml-2">
+                Dream Patterns
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={fetchPatterns}
+              disabled={patternsLoading}
+              className="bg-slate-800 px-3 py-1.5 rounded-lg flex-row items-center"
+            >
+              {patternsLoading ? (
+                <ActivityIndicator size="small" color="#6366f1" />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={14} color="#818cf8" />
+                  <Text className="text-indigo-400 text-sm ml-1 font-medium">Analyze</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {patterns ? (
+            <View className="bg-slate-800 rounded-2xl p-4">
+              <Text className="text-slate-300 text-sm leading-5 mb-3">{patterns.summary}</Text>
+
+              {patterns.recurring_symbols.length > 0 && (
+                <View className="mb-3">
+                  <Text className="text-slate-500 text-xs mb-2">Recurring Symbols</Text>
+                  <View className="flex-row flex-wrap gap-1">
+                    {patterns.recurring_symbols.map((symbol, i) => (
+                      <View key={i} className="bg-purple-900/40 px-2 py-1 rounded-lg">
+                        <Text className="text-purple-400 text-xs">{symbol}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {patterns.emotional_trends.length > 0 && (
+                <View className="mb-3">
+                  <Text className="text-slate-500 text-xs mb-2">Emotional Trends</Text>
+                  {patterns.emotional_trends.map((trend, i) => (
+                    <View key={i} className="flex-row items-center mb-1">
+                      <Ionicons name="trending-up" size={12} color="#f472b6" />
+                      <Text className="text-slate-300 text-sm ml-2">{trend}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {patterns.temporal_patterns.length > 0 && (
+                <View>
+                  <Text className="text-slate-500 text-xs mb-2">Temporal Patterns</Text>
+                  {patterns.temporal_patterns.map((pattern, i) => (
+                    <View key={i} className="flex-row items-center mb-1">
+                      <Ionicons name="moon" size={12} color="#818cf8" />
+                      <Text className="text-slate-300 text-sm ml-2">{pattern}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="bg-slate-800 rounded-2xl p-6 items-center">
+              <Ionicons name="eye-outline" size={32} color="#64748b" />
+              <Text className="text-slate-400 mt-3 text-center text-sm">
+                Tap "Analyze" to discover recurring themes in your dreams
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* AI Insights Section */}

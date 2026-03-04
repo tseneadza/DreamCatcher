@@ -5,4 +5,6 @@ export { goalsApi } from './goals';
 export { ideasApi } from './ideas';
 export { sleepApi } from './sleep';
 export { aiApi } from './ai';
+export { researchApi } from './research';
+export { filtersApi } from './filters';
 export * from './types';

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Target, Lightbulb, BedDouble, TrendingUp, Sparkles, Brain, RefreshCw } from 'lucide-react';
+import { Moon, Target, Lightbulb, BedDouble, TrendingUp, Sparkles, Brain, RefreshCw, Loader2, Eye } from 'lucide-react';
 import { dreamsApi, goalsApi, ideasApi, sleepApi, aiApi } from '../api';
-import type { Dream, Goal, Idea, SleepLog } from '../api/types';
+import type { Dream, Goal, Idea, SleepLog, SleepStats, PatternAnalysis } from '../api/types';
 import type { InsightsResponse } from '../api/ai';
 import { useAuth } from '../context/AuthContext';
 import { format, subDays } from 'date-fns';
@@ -13,7 +13,10 @@ export default function Dashboard() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
+  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [patterns, setPatterns] = useState<PatternAnalysis | null>(null);
+  const [loadingPatterns, setLoadingPatterns] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingInsights, setLoadingInsights] = useState(false);
 
@@ -23,16 +26,18 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [dreamsData, goalsData, ideasData, sleepData] = await Promise.all([
+      const [dreamsData, goalsData, ideasData, sleepData, statsData] = await Promise.all([
         dreamsApi.getAll({ limit: 5 }),
         goalsApi.getAll({ limit: 5 }),
         ideasApi.getAll({ limit: 5 }),
         sleepApi.getAll({ limit: 7 }),
+        sleepApi.getStats().catch(() => null),
       ]);
       setDreams(dreamsData);
       setGoals(goalsData);
       setIdeas(ideasData);
       setSleepLogs(sleepData);
+      setSleepStats(statsData);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -49,6 +54,18 @@ export default function Dashboard() {
       console.error('Failed to load insights:', err);
     } finally {
       setLoadingInsights(false);
+    }
+  };
+
+  const loadPatterns = async () => {
+    setLoadingPatterns(true);
+    try {
+      const data = await aiApi.getPatterns(30);
+      setPatterns(data);
+    } catch (err) {
+      console.error('Failed to load patterns:', err);
+    } finally {
+      setLoadingPatterns(false);
     }
   };
 
@@ -168,6 +185,73 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Dream Patterns Card */}
+      <div className="card mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Eye className="w-5 h-5 text-indigo-300" />
+            Dream Patterns
+          </h2>
+          <button
+            onClick={loadPatterns}
+            disabled={loadingPatterns}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingPatterns ? 'animate-spin' : ''}`} />
+            {loadingPatterns ? 'Analyzing...' : 'Analyze Patterns'}
+          </button>
+        </div>
+
+        {patterns ? (
+          <div className="space-y-4">
+            <p className="text-white/80 text-sm">{patterns.summary}</p>
+
+            {patterns.recurring_symbols.length > 0 && (
+              <div>
+                <span className="text-white/50 text-xs block mb-2">Recurring Symbols</span>
+                <div className="flex gap-2 flex-wrap">
+                  {patterns.recurring_symbols.map((symbol, i) => (
+                    <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full">
+                      {symbol}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {patterns.emotional_trends.length > 0 && (
+              <div>
+                <span className="text-white/50 text-xs block mb-2">Emotional Trends</span>
+                <div className="space-y-1">
+                  {patterns.emotional_trends.map((trend, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <TrendingUp className="w-3 h-3 text-pink-400" />
+                      <span className="text-white/70">{trend}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {patterns.temporal_patterns.length > 0 && (
+              <div>
+                <span className="text-white/50 text-xs block mb-2">Temporal Patterns</span>
+                <div className="space-y-1">
+                  {patterns.temporal_patterns.map((pattern, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <Moon className="w-3 h-3 text-indigo-400" />
+                      <span className="text-white/70">{pattern}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-white/40 text-sm">Click "Analyze Patterns" to discover recurring themes in your dreams</p>
+        )}
+      </div>
+
       {/* Content Grid */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Recent Dreams */}
@@ -262,18 +346,55 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Sleep Quality */}
+        {/* Sleep Trends */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-300" />
-              Sleep Quality (Last 7 Days)
+              Sleep Trends
             </h2>
             <Link to="/sleep" className="text-indigo-300 text-sm hover:text-indigo-200">
               View all
             </Link>
           </div>
-          {sleepLogs.length === 0 ? (
+
+          {sleepStats ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="text-white/50 text-xs">Avg Quality</p>
+                  <p className="text-white text-lg font-bold">{sleepStats.avg_quality.toFixed(1)}/5</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="text-white/50 text-xs">Logs</p>
+                  <p className="text-white text-lg font-bold">{sleepStats.total_logs}</p>
+                </div>
+              </div>
+
+              {sleepStats.avg_duration !== null && (
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="text-white/50 text-xs">Avg Duration</p>
+                  <p className="text-white text-lg font-bold">
+                    {Math.floor(sleepStats.avg_duration / 60)}h {Math.round(sleepStats.avg_duration % 60)}m
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-end justify-between h-20 gap-1">
+                {sleepStats.quality_trend.slice(-7).map((point, index) => (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                    <div
+                      className="w-full bg-indigo-500 rounded-t transition-all"
+                      style={{ height: `${point.quality * 20}%` }}
+                    />
+                    <span className="text-white/40 text-[10px]">
+                      {format(new Date(point.date), 'EEE')[0]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : sleepLogs.length === 0 ? (
             <p className="text-white/40 text-sm">No sleep logs yet</p>
           ) : (
             <div className="flex items-end justify-between h-24 gap-2">

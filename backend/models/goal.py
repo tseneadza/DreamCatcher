@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -35,7 +35,10 @@ class Goal(Base):
     target_date = Column(DateTime(timezone=True), nullable=True)
     milestones = Column(JSON, default=list)
     ai_suggestions = Column(Text, nullable=True)
+    priority = Column(Integer, default=3)
+    notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     user = relationship("User", back_populates="goals")
+    dreams = relationship("Dream", back_populates="goal")

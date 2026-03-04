@@ -8,6 +8,7 @@ import Dreams from './pages/Dreams';
 import Goals from './pages/Goals';
 import Ideas from './pages/Ideas';
 import Sleep from './pages/Sleep';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="goals" element={<Goals />} />
         <Route path="ideas" element={<Ideas />} />
         <Route path="sleep" element={<Sleep />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   );

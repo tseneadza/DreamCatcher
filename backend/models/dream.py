@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -17,6 +17,17 @@ class Dream(Base):
     dream_date = Column(DateTime(timezone=True), default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    lucidity_level = Column(Integer, default=0)  # 0-5 scale
+    emotions = Column(JSON, default=list)
+    characters = Column(JSON, default=list)
+    locations = Column(JSON, default=list)
+    is_recurring = Column(Boolean, default=False)
+    recurring_theme = Column(String(255), nullable=True)
+    vividness = Column(Integer, default=3)  # 1-5 scale
+    dream_type = Column(String(20), default="normal")  # normal/nightmare/lucid/daydream
+    
+    goal_id = Column(Integer, ForeignKey("goals.id", ondelete="SET NULL"), nullable=True)
     
     user = relationship("User", back_populates="dreams")
+    goal = relationship("Goal", back_populates="dreams")
     sleep_log = relationship("SleepLog", back_populates="dream", uselist=False)

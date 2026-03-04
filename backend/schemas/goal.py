@@ -15,6 +15,8 @@ class GoalCreate(BaseModel):
     category: str = GoalCategory.PERSONAL.value
     target_date: Optional[datetime] = None
     milestones: List[MilestoneSchema] = Field(default_factory=list)
+    priority: int = Field(default=3, ge=1, le=5)
+    notes: Optional[str] = None
 
 
 class GoalUpdate(BaseModel):
@@ -25,6 +27,8 @@ class GoalUpdate(BaseModel):
     progress: Optional[int] = Field(None, ge=0, le=100)
     target_date: Optional[datetime] = None
     milestones: Optional[List[MilestoneSchema]] = None
+    priority: Optional[int] = Field(None, ge=1, le=5)
+    notes: Optional[str] = None
 
 
 class GoalResponse(BaseModel):
@@ -35,11 +39,22 @@ class GoalResponse(BaseModel):
     category: str
     status: str
     progress: int
+    priority: int = 3
+    notes: Optional[str] = None
     target_date: Optional[datetime] = None
     milestones: List[dict]
     ai_suggestions: Optional[str] = None
+    dream_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
+
+
+class GoalDetailResponse(GoalResponse):
+    linked_dreams: List["DreamResponse"] = []
+
+
+from schemas.dream import DreamResponse
+GoalDetailResponse.model_rebuild()

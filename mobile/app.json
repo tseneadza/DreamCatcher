@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dreamcatcher.app"
+      "bundleIdentifier": "com.dreamcatcher.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "com.dreamcatcher.app",
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -45,10 +52,12 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://localhost:5111",
+      "apiUrl": "http://192.168.1.193:5111",
+      "router": {},
       "eas": {
-        "projectId": "dreamcatcher-mobile"
+        "projectId": "ca497f5e-200e-47ef-b0f6-d5cf68418db9"
       }
-    }
+    },
+    "owner": "tseneadza"
   }
 }

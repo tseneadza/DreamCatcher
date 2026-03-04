@@ -2,12 +2,30 @@ import { api } from './client';
 import type { Dream, DreamCreate } from './types';
 
 export const dreamsApi = {
-  async getAll(params?: { mood?: number; skip?: number; limit?: number }): Promise<Dream[]> {
+  async getAll(params?: {
+    mood?: number;
+    skip?: number;
+    limit?: number;
+    dream_type?: string;
+    date_from?: string;
+    date_to?: string;
+    tag?: string;
+    q?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<Dream[]> {
     const searchParams = new URLSearchParams();
     if (params?.mood) searchParams.set('mood', String(params.mood));
     if (params?.skip) searchParams.set('skip', String(params.skip));
     if (params?.limit) searchParams.set('limit', String(params.limit));
-    
+    if (params?.dream_type) searchParams.set('dream_type', params.dream_type);
+    if (params?.date_from) searchParams.set('date_from', params.date_from);
+    if (params?.date_to) searchParams.set('date_to', params.date_to);
+    if (params?.tag) searchParams.set('tag', params.tag);
+    if (params?.q) searchParams.set('q', params.q);
+    if (params?.sort_by) searchParams.set('sort_by', params.sort_by);
+    if (params?.sort_order) searchParams.set('sort_order', params.sort_order);
+
     const query = searchParams.toString();
     return api.get<Dream[]>(`/dreams/${query ? `?${query}` : ''}`);
   },
@@ -30,5 +48,17 @@ export const dreamsApi = {
 
   async interpret(id: number): Promise<Dream> {
     return api.post<Dream>(`/dreams/${id}/interpret`);
+  },
+
+  async getTags(): Promise<string[]> {
+    return api.get<string[]>('/dreams/tags');
+  },
+
+  async getRecurring(params?: { skip?: number; limit?: number }): Promise<Dream[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.skip) searchParams.set('skip', String(params.skip));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const query = searchParams.toString();
+    return api.get<Dream[]>(`/dreams/recurring${query ? `?${query}` : ''}`);
   },
 };

@@ -39,6 +39,9 @@ async def get_ideas(
     limit: int = Query(50, ge=1, le=100),
     category: Optional[str] = None,
     priority: Optional[int] = Query(None, ge=1, le=3),
+    q: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None, pattern="^(date|priority)$"),
+    sort_order: Optional[str] = Query(None, pattern="^(asc|desc)$"),
 ):
     query = db.query(Idea).filter(Idea.user_id == current_user.id)
     
@@ -46,8 +49,15 @@ async def get_ideas(
         query = query.filter(Idea.category == category)
     if priority is not None:
         query = query.filter(Idea.priority == priority)
-    
-    ideas = query.order_by(Idea.created_at.desc()).offset(skip).limit(limit).all()
+    if q is not None:
+        search_term = f"%{q}%"
+        query = query.filter(Idea.content.like(search_term))
+
+    sort_col_map = {"date": Idea.created_at, "priority": Idea.priority}
+    sort_col = sort_col_map.get(sort_by or "date", Idea.created_at)
+    order = sort_col.asc() if sort_order == "asc" else sort_col.desc()
+
+    ideas = query.order_by(order).offset(skip).limit(limit).all()
     return ideas
 
 
