@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Moon, Target, Lightbulb, BedDouble, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { Moon, Target, Lightbulb, BedDouble, LayoutDashboard, LogOut, Menu, X, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/goals', icon: Target, label: 'Goals' },
   { to: '/ideas', icon: Lightbulb, label: 'Ideas' },
   { to: '/sleep', icon: BedDouble, label: 'Sleep' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Layout() {

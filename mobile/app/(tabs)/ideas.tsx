@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,18 @@ export default function IdeasScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [newIdea, setNewIdea] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [showSortPicker, setShowSortPicker] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedQuery(text), 300);
+  }, []);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -37,14 +49,18 @@ export default function IdeasScreen() {
 
   const fetchIdeas = useCallback(async () => {
     try {
-      const data = await ideasApi.getAll();
-      setIdeas(data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      const params: { q?: string; sort_by?: string; sort_order?: string } = {};
+      if (debouncedQuery) params.q = debouncedQuery;
+      params.sort_by = sortBy;
+      params.sort_order = sortOrder;
+      const data = await ideasApi.getAll(params);
+      setIdeas(data);
     } catch (error) {
       console.error('Failed to fetch ideas:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedQuery, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchIdeas();
@@ -353,7 +369,31 @@ export default function IdeasScreen() {
   return (
     <SafeAreaView className="flex-1 bg-slate-900">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-white text-2xl font-bold mb-4">💡 Ideas</Text>
+        <Text className="text-white text-2xl font-bold mb-3">💡 Ideas</Text>
+
+        <View className="flex-row items-center gap-2 mb-3">
+          <View className="flex-1 bg-slate-800 rounded-xl flex-row items-center px-3">
+            <FontAwesome name="search" size={14} color="#64748b" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              placeholder="Search ideas..."
+              placeholderTextColor="#64748b"
+              className="flex-1 text-white py-2.5 ml-2 text-sm"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }}>
+                <FontAwesome name="times-circle" size={14} color="#64748b" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowSortPicker(true)}
+            className="bg-slate-800 p-2.5 rounded-xl"
+          >
+            <FontAwesome name="sort" size={16} color="#a5b4fc" />
+          </TouchableOpacity>
+        </View>
 
         <View className="bg-slate-800 rounded-xl p-4 mb-4">
           <TextInput
@@ -430,6 +470,30 @@ export default function IdeasScreen() {
           ) : null
         }
       />
+
+      <Modal visible={showSortPicker} transparent animationType="fade" onRequestClose={() => setShowSortPicker(false)}>
+        <Pressable className="flex-1 bg-black/50 justify-center items-center" onPress={() => setShowSortPicker(false)}>
+          <View className="bg-slate-800 rounded-2xl p-4 w-72">
+            <Text className="text-white text-lg font-bold mb-4 text-center">Sort By</Text>
+            {[
+              { label: 'Newest First', sb: 'date', so: 'desc' },
+              { label: 'Oldest First', sb: 'date', so: 'asc' },
+              { label: 'Priority (High)', sb: 'priority', so: 'desc' },
+              { label: 'Priority (Low)', sb: 'priority', so: 'asc' },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={`${opt.sb}-${opt.so}`}
+                onPress={() => { setSortBy(opt.sb); setSortOrder(opt.so); setShowSortPicker(false); }}
+                className={`py-3 px-4 rounded-xl mb-2 ${
+                  sortBy === opt.sb && sortOrder === opt.so ? 'bg-indigo-600' : 'bg-slate-700'
+                }`}
+              >
+                <Text className="text-white text-center">{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       {renderCategoryPicker()}
       {renderPriorityPicker()}

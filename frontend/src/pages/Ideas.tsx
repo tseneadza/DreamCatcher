@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Lightbulb, Trash2, X, Star } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Plus, Lightbulb, Trash2, Star, Search } from 'lucide-react';
 import { ideasApi } from '../api';
 import type { Idea, IdeaCreate } from '../api/types';
 import { format } from 'date-fns';
@@ -15,14 +15,29 @@ export default function Ideas() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 300);
+  }, []);
 
   useEffect(() => {
     loadIdeas();
-  }, []);
+  }, [debouncedQuery, sortBy, sortOrder]);
 
   const loadIdeas = async () => {
     try {
-      const data = await ideasApi.getAll();
+      const params: { q?: string; sort_by?: string; sort_order?: string } = {};
+      if (debouncedQuery) params.q = debouncedQuery;
+      if (sortBy) params.sort_by = sortBy;
+      if (sortOrder) params.sort_order = sortOrder;
+      const data = await ideasApi.getAll(params);
       setIdeas(data);
     } catch (err) {
       console.error('Failed to load ideas:', err);
@@ -66,6 +81,33 @@ export default function Ideas() {
           <Plus className="w-5 h-5" />
           New Idea
         </button>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="input pl-10 w-full"
+            placeholder="Search ideas..."
+          />
+        </div>
+        <select
+          value={`${sortBy}-${sortOrder}`}
+          onChange={(e) => {
+            const [sb, so] = e.target.value.split('-');
+            setSortBy(sb);
+            setSortOrder(so);
+          }}
+          className="input w-48"
+        >
+          <option value="date-desc">Newest First</option>
+          <option value="date-asc">Oldest First</option>
+          <option value="priority-desc">Priority (High to Low)</option>
+          <option value="priority-asc">Priority (Low to High)</option>
+        </select>
       </div>
 
       {showForm && (

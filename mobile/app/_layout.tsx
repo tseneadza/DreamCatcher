@@ -1,24 +1,18 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import '../global.css';
 
-import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 
 export { ErrorBoundary } from 'expo-router';
 
-export const unstable_settings = {
-  initialRouteName: '(auth)',
-};
-
 SplashScreen.preventAutoHideAsync();
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthRedirect() {
   const { isAuthenticated, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
@@ -35,11 +29,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, loading, segments]);
 
-  if (loading) {
-    return null;
-  }
-
-  return <>{children}</>;
+  return null;
 }
 
 export default function RootLayout() {
@@ -58,29 +48,10 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
-
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <AuthRedirect />
+      <Slot />
     </AuthProvider>
-  );
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthGate>
-        <Stack>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </AuthGate>
-    </ThemeProvider>
   );
 }

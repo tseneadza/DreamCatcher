@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { goalsApi, Goal, GoalCreate } from '@/api';
+import { goalsApi, aiApi, Goal, GoalCreate, Dream } from '@/api';
+import type { GoalAlignmentResponse } from '@/api/types';
 
 type GoalStatus = 'active' | 'completed' | 'paused';
 type GoalCategory = 'Personal' | 'Career' | 'Health' | 'Learning' | 'Financial';
@@ -73,6 +74,16 @@ export default function GoalsScreen() {
   const [filterCategory, setFilterCategory] = useState<GoalCategory | null>(null);
   const [filterStatus, setFilterStatus] = useState<GoalStatus | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [priorityMin, setPriorityMin] = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedQuery(text), 300);
+  }, []);
 
   const [newGoal, setNewGoal] = useState<GoalCreate>({
     title: '',
@@ -80,19 +91,27 @@ export default function GoalsScreen() {
     category: 'Personal',
     target_date: undefined,
     milestones: [],
+    priority: 3,
+    notes: '',
   });
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [linkedDreams, setLinkedDreams] = useState<Dream[]>([]);
+  const [loadingDreams, setLoadingDreams] = useState(false);
+  const [alignment, setAlignment] = useState<GoalAlignmentResponse | null>(null);
+  const [loadingAlignment, setLoadingAlignment] = useState(false);
 
   const fetchGoals = useCallback(async () => {
     try {
       setError(null);
-      const params: { status?: string; category?: string } = {};
+      const params: { status?: string; category?: string; q?: string; priority_min?: number } = {};
       if (filterStatus) params.status = filterStatus;
       if (filterCategory) params.category = filterCategory;
+      if (debouncedQuery) params.q = debouncedQuery;
+      if (priorityMin > 0) params.priority_min = priorityMin;
       
       const data = await goalsApi.getAll(params);
       setGoals(data);
@@ -102,11 +121,36 @@ export default function GoalsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filterStatus, filterCategory]);
+  }, [filterStatus, filterCategory, debouncedQuery, priorityMin]);
 
   useEffect(() => {
     fetchGoals();
   }, [fetchGoals]);
+
+  useEffect(() => {
+    if (selectedGoal && showDetailModal) {
+      setLoadingDreams(true);
+      goalsApi.getGoalDreams(selectedGoal.id)
+        .then(setLinkedDreams)
+        .catch(() => setLinkedDreams([]))
+        .finally(() => setLoadingDreams(false));
+    } else {
+      setLinkedDreams([]);
+      setAlignment(null);
+    }
+  }, [selectedGoal?.id, showDetailModal]);
+
+  const handleDreamAlignment = async (goalId: number) => {
+    setLoadingAlignment(true);
+    try {
+      const result = await aiApi.goalAlignment(goalId);
+      setAlignment(result);
+    } catch {
+      Alert.alert('Error', 'Failed to analyze dream alignment.');
+    } finally {
+      setLoadingAlignment(false);
+    }
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -125,6 +169,8 @@ export default function GoalsScreen() {
       category: 'Personal',
       target_date: undefined,
       milestones: [],
+      priority: 3,
+      notes: '',
     });
     setNewMilestoneTitle('');
     setSelectedDate(new Date());
@@ -298,6 +344,20 @@ export default function GoalsScreen() {
           </Text>
         </View>
       </View>
+
+      <View className="flex-row items-center justify-between mt-2">
+        <Text className="text-yellow-400 text-xs">
+          {'★'.repeat(item.priority || 3)}{'☆'.repeat(5 - (item.priority || 3))}
+        </Text>
+        {item.dream_count > 0 && (
+          <View className="flex-row items-center">
+            <FontAwesome name="cloud" size={10} color="#5eead4" />
+            <Text className="text-teal-400 text-xs ml-1">
+              {item.dream_count} dream{item.dream_count !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
@@ -453,6 +513,38 @@ export default function GoalsScreen() {
               )}
             </View>
           )}
+
+          <Text className="text-slate-400 text-sm mb-2">Priority ({newGoal.priority || 3}/5)</Text>
+          <View className="bg-slate-800 rounded-lg px-4 py-3 mb-4 border border-slate-700">
+            <Slider
+              minimumValue={1}
+              maximumValue={5}
+              step={1}
+              value={newGoal.priority || 3}
+              onValueChange={(value) => setNewGoal((prev) => ({ ...prev, priority: value }))}
+              minimumTrackTintColor="#6366f1"
+              maximumTrackTintColor="#334155"
+              thumbTintColor="#818cf8"
+            />
+            <View className="flex-row justify-between mt-1">
+              <Text className="text-slate-500 text-xs">Low</Text>
+              <Text className="text-yellow-400 text-xs">
+                {'★'.repeat(newGoal.priority || 3)}{'☆'.repeat(5 - (newGoal.priority || 3))}
+              </Text>
+              <Text className="text-slate-500 text-xs">High</Text>
+            </View>
+          </View>
+
+          <Text className="text-slate-400 text-sm mb-1">Notes</Text>
+          <TextInput
+            className="bg-slate-800 text-white rounded-lg px-4 py-3 mb-4 text-base border border-slate-700 min-h-[80px]"
+            placeholder="Additional notes..."
+            placeholderTextColor="#64748b"
+            value={newGoal.notes}
+            onChangeText={(text) => setNewGoal((prev) => ({ ...prev, notes: text }))}
+            multiline
+            textAlignVertical="top"
+          />
 
           <Text className="text-slate-400 text-sm mb-2">Milestones</Text>
           <View className="flex-row mb-3">
@@ -620,6 +712,109 @@ export default function GoalsScreen() {
               </View>
             )}
 
+            <View className="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
+              <Text className="text-white font-semibold mb-2">Priority</Text>
+              <Text className="text-yellow-400 text-lg">
+                {'★'.repeat(selectedGoal.priority || 3)}{'☆'.repeat(5 - (selectedGoal.priority || 3))}
+              </Text>
+            </View>
+
+            {selectedGoal.notes && (
+              <View className="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
+                <Text className="text-white font-semibold mb-2">Notes</Text>
+                <Text className="text-slate-300">{selectedGoal.notes}</Text>
+              </View>
+            )}
+
+            <View className="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
+              <View className="flex-row items-center mb-3">
+                <FontAwesome name="cloud" size={16} color="#5eead4" />
+                <Text className="text-white font-semibold ml-2">
+                  Linked Dreams ({linkedDreams.length})
+                </Text>
+              </View>
+              {loadingDreams ? (
+                <ActivityIndicator size="small" color="#6366f1" />
+              ) : linkedDreams.length === 0 ? (
+                <Text className="text-slate-500 text-sm">No dreams linked to this goal yet.</Text>
+              ) : (
+                linkedDreams.map((dream) => (
+                  <View key={dream.id} className="bg-slate-700/50 rounded-lg p-3 mb-2">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center flex-1 mr-2">
+                        <Text className="text-lg mr-2">
+                          {['😫', '😞', '😐', '😊', '🌟'][Math.min(Math.max(dream.mood - 1, 0), 4)]}
+                        </Text>
+                        <Text className="text-white font-medium text-sm flex-1" numberOfLines={1}>
+                          {dream.title}
+                        </Text>
+                      </View>
+                      <Text className="text-slate-400 text-xs">
+                        {new Date(dream.dream_date).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    <Text className="text-slate-400 text-xs mt-1" numberOfLines={1}>
+                      {dream.content}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+
+            {/* Dream Alignment */}
+            {alignment ? (
+              <View className="bg-indigo-900/40 rounded-xl p-4 mb-4 border border-indigo-700">
+                <View className="flex-row items-center mb-3">
+                  <FontAwesome name="star" size={16} color="#a5b4fc" />
+                  <Text className="text-indigo-300 font-semibold ml-2">Dream Alignment</Text>
+                </View>
+                <View className="flex-row items-center mb-3">
+                  <Text className={`text-2xl font-bold ${
+                    alignment.alignment_score >= 0.7 ? 'text-green-400' :
+                    alignment.alignment_score >= 0.4 ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {Math.round(alignment.alignment_score * 100)}%
+                  </Text>
+                  <View className="flex-1 ml-3 h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <View
+                      className={`h-full rounded-full ${
+                        alignment.alignment_score >= 0.7 ? 'bg-green-500' :
+                        alignment.alignment_score >= 0.4 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${alignment.alignment_score * 100}%` }}
+                    />
+                  </View>
+                </View>
+                <Text className="text-slate-300 text-sm leading-5 mb-2">{alignment.analysis}</Text>
+                {alignment.relevant_themes.length > 0 && (
+                  <View className="flex-row flex-wrap gap-1 mt-1">
+                    {alignment.relevant_themes.map((theme, i) => (
+                      <View key={i} className="bg-indigo-600/30 px-2 py-1 rounded">
+                        <Text className="text-indigo-400 text-xs">{theme}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity
+                className="bg-slate-800 border border-slate-700 rounded-xl py-4 mb-4 flex-row items-center justify-center"
+                onPress={() => handleDreamAlignment(selectedGoal.id)}
+                disabled={loadingAlignment}
+              >
+                {loadingAlignment ? (
+                  <ActivityIndicator size="small" color="#a5b4fc" />
+                ) : (
+                  <>
+                    <FontAwesome name="star" size={16} color="#a5b4fc" />
+                    <Text className="text-indigo-300 font-semibold ml-2">Dream Alignment</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               className="bg-indigo-600 rounded-xl py-4 mb-4 flex-row items-center justify-center"
               onPress={() => handleGetAISuggestions(selectedGoal.id)}
@@ -663,14 +858,49 @@ export default function GoalsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-900" edges={['top']}>
-      <View className="flex-row justify-between items-center px-4 py-3 border-b border-slate-800">
-        <Text className="text-white text-2xl font-bold">Goals</Text>
-        <TouchableOpacity
-          className={`p-2 rounded-lg ${showFilters ? 'bg-indigo-600' : 'bg-slate-800'}`}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <FontAwesome name="filter" size={18} color="#fff" />
-        </TouchableOpacity>
+      <View className="px-4 py-3 border-b border-slate-800">
+        <View className="flex-row justify-between items-center">
+          <Text className="text-white text-2xl font-bold">Goals</Text>
+          <TouchableOpacity
+            className={`p-2 rounded-lg ${showFilters ? 'bg-indigo-600' : 'bg-slate-800'}`}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <FontAwesome name="filter" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <View className="flex-row items-center gap-2 mt-3">
+          <View className="flex-1 bg-slate-800 rounded-xl flex-row items-center px-3">
+            <FontAwesome name="search" size={14} color="#64748b" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              placeholder="Search goals..."
+              placeholderTextColor="#64748b"
+              className="flex-1 text-white py-2.5 ml-2 text-sm"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }}>
+                <FontAwesome name="times-circle" size={14} color="#64748b" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        {showFilters && (
+          <View className="mt-3">
+            <Text className="text-slate-400 text-sm mb-2">Min Priority</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {[0, 1, 2, 3, 4, 5].map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  className={`px-3 py-1.5 rounded-full mr-2 ${priorityMin === p ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                  onPress={() => setPriorityMin(p)}
+                >
+                  <Text className="text-white text-sm">{p === 0 ? 'All' : `${p}+`}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       <FlatList

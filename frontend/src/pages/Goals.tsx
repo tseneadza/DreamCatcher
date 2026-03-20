@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Plus, Target, Trash2, X, Check } from 'lucide-react';
-import { goalsApi } from '../api';
-import type { Goal, GoalCreate } from '../api/types';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Plus, Target, Trash2, X, Check, Moon, Loader2, Sparkles, Search } from 'lucide-react';
+import { goalsApi, aiApi } from '../api';
+import type { Dream, Goal, GoalCreate, GoalAlignmentResponse } from '../api/types';
 import { format } from 'date-fns';
 
 const categoryColors: Record<string, string> = {
@@ -26,14 +26,31 @@ export default function Goals() {
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [priorityMin, setPriorityMin] = useState(0);
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedQuery(value), 300);
+  }, []);
 
   useEffect(() => {
     loadGoals();
-  }, []);
+  }, [debouncedQuery, priorityMin, sortBy, sortOrder]);
 
   const loadGoals = async () => {
     try {
-      const data = await goalsApi.getAll();
+      const params: { q?: string; priority_min?: number; sort_by?: string; sort_order?: string } = {};
+      if (debouncedQuery) params.q = debouncedQuery;
+      if (priorityMin > 0) params.priority_min = priorityMin;
+      if (sortBy) params.sort_by = sortBy;
+      if (sortOrder) params.sort_order = sortOrder;
+      const data = await goalsApi.getAll(params);
       setGoals(data);
     } catch (err) {
       console.error('Failed to load goals:', err);
@@ -84,6 +101,47 @@ export default function Goals() {
         </button>
       </div>
 
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="input pl-10 w-full"
+            placeholder="Search goals..."
+          />
+        </div>
+        <select
+          value={priorityMin}
+          onChange={(e) => setPriorityMin(Number(e.target.value))}
+          className="input w-44"
+        >
+          <option value={0}>All Priorities</option>
+          <option value={1}>Priority 1+</option>
+          <option value={2}>Priority 2+</option>
+          <option value={3}>Priority 3+</option>
+          <option value={4}>Priority 4+</option>
+          <option value={5}>Priority 5</option>
+        </select>
+        <select
+          value={`${sortBy}-${sortOrder}`}
+          onChange={(e) => {
+            const [sb, so] = e.target.value.split('-');
+            setSortBy(sb);
+            setSortOrder(so);
+          }}
+          className="input w-48"
+        >
+          <option value="date-desc">Newest First</option>
+          <option value="date-asc">Oldest First</option>
+          <option value="priority-desc">Priority (High to Low)</option>
+          <option value="priority-asc">Priority (Low to High)</option>
+          <option value="progress-desc">Progress (High to Low)</option>
+          <option value="progress-asc">Progress (Low to High)</option>
+        </select>
+      </div>
+
       {showForm && (
         <GoalForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />
       )}
@@ -122,11 +180,22 @@ export default function Goals() {
                 />
               </div>
 
-              {goal.target_date && (
-                <p className="text-white/40 text-sm">
-                  Target: {format(new Date(goal.target_date), 'MMM d, yyyy')}
-                </p>
-              )}
+              <div className="flex items-center gap-4">
+                {goal.target_date && (
+                  <p className="text-white/40 text-sm">
+                    Target: {format(new Date(goal.target_date), 'MMM d, yyyy')}
+                  </p>
+                )}
+                <span className="text-white/40 text-sm">
+                  Priority: {'★'.repeat(goal.priority)}{'☆'.repeat(5 - goal.priority)}
+                </span>
+                {goal.dream_count > 0 && (
+                  <span className="text-teal-300/60 text-sm flex items-center gap-1">
+                    <Moon className="w-3 h-3" />
+                    {goal.dream_count} dream{goal.dream_count !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -155,6 +224,8 @@ function GoalForm({
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('personal');
   const [targetDate, setTargetDate] = useState('');
+  const [priority, setPriority] = useState(3);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,6 +237,8 @@ function GoalForm({
         description: description || undefined,
         category,
         target_date: targetDate ? new Date(targetDate).toISOString() : undefined,
+        priority,
+        notes: notes || undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -224,6 +297,32 @@ function GoalForm({
         </div>
       </div>
 
+      <div>
+        <label className="label">Priority (1-5): {priority}</label>
+        <input
+          type="range"
+          min="1"
+          max="5"
+          value={priority}
+          onChange={(e) => setPriority(Number(e.target.value))}
+          className="w-full accent-indigo-500"
+        />
+        <div className="flex justify-between text-white/40 text-xs mt-1">
+          <span>Low</span>
+          <span>High</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="input min-h-[80px] resize-y"
+          placeholder="Additional notes..."
+        />
+      </div>
+
       <div className="flex gap-3 justify-end">
         <button type="button" onClick={onCancel} className="btn-secondary">
           Cancel
@@ -248,6 +347,42 @@ function GoalModal({
   onUpdateProgress: (progress: number) => void;
 }) {
   const [progress, setProgress] = useState(goal.progress);
+  const [linkedDreams, setLinkedDreams] = useState<Dream[]>([]);
+  const [loadingDreams, setLoadingDreams] = useState(false);
+  const [alignment, setAlignment] = useState<GoalAlignmentResponse | null>(null);
+  const [isLoadingAlignment, setIsLoadingAlignment] = useState(false);
+
+  useEffect(() => {
+    setLoadingDreams(true);
+    goalsApi.getGoalDreams(goal.id)
+      .then(setLinkedDreams)
+      .catch(() => {})
+      .finally(() => setLoadingDreams(false));
+  }, [goal.id]);
+
+  const handleDreamAlignment = async () => {
+    setIsLoadingAlignment(true);
+    try {
+      const result = await aiApi.goalAlignment(goal.id);
+      setAlignment(result);
+    } catch (err) {
+      console.error('Failed to get dream alignment:', err);
+    } finally {
+      setIsLoadingAlignment(false);
+    }
+  };
+
+  const getAlignmentColor = (score: number) => {
+    if (score >= 0.7) return 'text-green-400';
+    if (score >= 0.4) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getAlignmentBarColor = (score: number) => {
+    if (score >= 0.7) return 'bg-green-500';
+    if (score >= 0.4) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
@@ -319,6 +454,96 @@ function GoalModal({
             Target: {format(new Date(goal.target_date), 'MMMM d, yyyy')}
           </p>
         )}
+
+        <div className="flex items-center gap-4 mb-4">
+          <span className="text-white/60 text-sm">Priority:</span>
+          <span className="text-yellow-400">{'★'.repeat(goal.priority)}{'☆'.repeat(5 - goal.priority)}</span>
+        </div>
+
+        {goal.notes && (
+          <div className="mb-4 p-3 bg-white/5 rounded-lg">
+            <span className="text-white/50 text-xs block mb-1">Notes</span>
+            <p className="text-white/80 text-sm whitespace-pre-wrap">{goal.notes}</p>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+            <Moon className="w-4 h-4 text-indigo-300" />
+            Linked Dreams ({linkedDreams.length})
+          </h3>
+          {loadingDreams ? (
+            <p className="text-white/40 text-sm">Loading...</p>
+          ) : linkedDreams.length === 0 ? (
+            <p className="text-white/40 text-sm">No dreams linked to this goal yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedDreams.map((dream) => (
+                <div key={dream.id} className="p-3 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{['😢', '😕', '😐', '🙂', '😊'][dream.mood - 1]}</span>
+                    <span className="text-white font-medium text-sm">{dream.title}</span>
+                    <span className="text-white/40 text-xs ml-auto">
+                      {format(new Date(dream.dream_date), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                  <p className="text-white/60 text-xs mt-1 line-clamp-1">{dream.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dream Alignment */}
+        <div className="mb-6">
+          {alignment ? (
+            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-indigo-300" />
+                <span className="text-indigo-200 font-medium">Dream Alignment</span>
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className={`text-2xl font-bold ${getAlignmentColor(alignment.alignment_score)}`}>
+                  {Math.round(alignment.alignment_score * 100)}%
+                </span>
+                <div className="flex-1 bg-white/10 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${getAlignmentBarColor(alignment.alignment_score)}`}
+                    style={{ width: `${alignment.alignment_score * 100}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-white/70 text-sm mb-3">{alignment.analysis}</p>
+              {alignment.relevant_themes.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {alignment.relevant_themes.map((theme, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-xs rounded-full">
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleDreamAlignment}
+              disabled={isLoadingAlignment}
+              className="btn-secondary w-full flex items-center justify-center gap-2"
+            >
+              {isLoadingAlignment ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing alignment...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Dream Alignment
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
         <div className="flex justify-end pt-4 border-t border-white/10">
           <button
