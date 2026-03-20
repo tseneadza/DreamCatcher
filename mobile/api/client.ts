@@ -4,11 +4,6 @@ import Constants from 'expo-constants';
 const API_BASE = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:5111';
 const TOKEN_KEY = 'dreamcatcher_token';
 
-// #region agent log
-console.log('[DEBUG-744591] API_BASE:', API_BASE, 'expoConfig:', Constants.expoConfig?.extra);
-fetch('http://127.0.0.1:7242/ingest/9bb15a77-37f7-4c75-bc72-12d426be4932',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'744591'},body:JSON.stringify({sessionId:'744591',location:'client.ts:init',message:'API client initialized',data:{API_BASE,expoExtra:Constants.expoConfig?.extra},timestamp:Date.now()})}).catch(()=>{});
-// #endregion
-
 interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
 }
@@ -62,22 +57,10 @@ class ApiClient {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
-    // #region agent log
-    console.log('[DEBUG-744591] Request:', endpoint, 'hasToken:', !!this.token, 'URL:', `${API_BASE}/api${endpoint}`);
-    fetch('http://127.0.0.1:7242/ingest/9bb15a77-37f7-4c75-bc72-12d426be4932',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'744591'},body:JSON.stringify({sessionId:'744591',location:'client.ts:request',message:'Making API request',data:{endpoint,hasToken:!!this.token,url:`${API_BASE}/api${endpoint}`,skipAuth},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     const response = await fetch(`${API_BASE}/api${endpoint}`, {
       ...fetchOptions,
       headers,
     });
-
-    // #region agent log
-    const responseClone = response.clone();
-    const responseText = await responseClone.text().catch(() => 'FAILED_TO_READ');
-    console.log('[DEBUG-744591] Response:', endpoint, 'status:', response.status, 'ok:', response.ok, 'body:', responseText.substring(0, 200));
-    fetch('http://127.0.0.1:7242/ingest/9bb15a77-37f7-4c75-bc72-12d426be4932',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'744591'},body:JSON.stringify({sessionId:'744591',location:'client.ts:response',message:'Got API response',data:{endpoint,status:response.status,ok:response.ok,bodyPreview:responseText.substring(0,200)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));

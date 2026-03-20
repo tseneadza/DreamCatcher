@@ -10,7 +10,7 @@
   "web": {
     "enabled": true,
     "entry": "start.sh",
-    "port": 5111,
+    "port": 5120,
     "framework": "fullstack",
     "command": ["./start.sh"]
   },

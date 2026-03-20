@@ -40,10 +40,15 @@ class ApiClient {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...fetchOptions,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}${endpoint}`, {
+        ...fetchOptions,
+        headers,
+      });
+    } catch (err) {
+      throw err;
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
