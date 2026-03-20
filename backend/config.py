@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
-    openai_api_key: str = "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"
+    # Provide via environment variable (OPENAI_API_KEY). Keep the default empty to avoid committing secrets.
+    openai_api_key: str = ""
     
     class Config:
         env_file = ".env"
