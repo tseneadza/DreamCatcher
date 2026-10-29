@@ -59,5 +59,32 @@
       }
     },
     "owner": "tseneadza"
-  }
+  },
+  "scripts": [
+    {
+      "name": "babel.config",
+      "path": "babel.config.js",
+      "description": "Script: babel.config.js"
+    },
+    {
+      "name": "expo-env.d",
+      "path": "expo-env.d.ts",
+      "description": "Script: expo-env.d.ts"
+    },
+    {
+      "name": "metro.config",
+      "path": "metro.config.js",
+      "description": "Script: metro.config.js"
+    },
+    {
+      "name": "nativewind-env.d",
+      "path": "nativewind-env.d.ts",
+      "description": "Script: nativewind-env.d.ts"
+    },
+    {
+      "name": "tailwind.config",
+      "path": "tailwind.config.js",
+      "description": "Script: tailwind.config.js"
+    }
+  ]
 }
